@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bloco Quiz — Minecraft</title>
+<style>
+:root{color-scheme:dark;--dirt:#493426;--panel:#c6c6c6;--ink:#222;--edge:#171717;--slot:#858585;--green:#527a39}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background-color:var(--dirt);background-image:linear-gradient(45deg,#ffffff0b 25%,transparent 25%,transparent 75%,#00000012 75%),linear-gradient(45deg,#00000012 25%,transparent 25%,transparent 75%,#ffffff08 75%);background-size:16px 16px;background-position:0 0,8px 8px;color:white;font-family:Arial,sans-serif}
+.app{width:min(100%,470px);min-height:100vh;margin:auto;padding:2px 8px 16px}.hearts{text-align:center;color:#f22;text-shadow:2px 2px #6d0000;font-size:25px;letter-spacing:3px;height:28px}.topline{display:flex;align-items:center;justify-content:center;gap:5px;margin:1px auto 7px;flex-wrap:wrap}.brand{font-size:14px;font-weight:1000;text-shadow:2px 2px #111}.stat{background:#555;border:2px solid #111;box-shadow:inset 2px 2px #aaa,inset -2px -2px #333;padding:3px 6px;font-size:10px;font-weight:900}.message{min-height:20px;margin:4px auto 6px;text-align:center;font-size:11px;font-weight:bold;text-shadow:1px 1px #111}
+.match-layout{display:flex;flex-direction:column;gap:10px;width:100%;margin:auto}.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;width:100%;margin:0}.card{min-width:0;min-height:100px;padding:5px 4px;background:var(--panel);color:#333;border:3px solid var(--edge);outline:1px solid #eee;box-shadow:inset 2px 2px white,inset -3px -3px #777;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:3px;text-align:center;cursor:default;font:inherit}.card.drop-target{outline:3px solid #ffe45c;background:#e4e4b7}.card.correct{background:#b4d6a0}.card.wrong{animation:shake .2s linear 2}@keyframes shake{50%{transform:translateX(3px)}}.sprite{width:25px;height:25px;object-fit:contain;image-rendering:pixelated;flex-shrink:0}.sprite-missing{opacity:.8}.question{font-size:clamp(9px,2.5vw,12px);line-height:1.12;min-height:30px;display:flex;align-items:center;justify-content:center;overflow-wrap:anywhere;width:100%;flex:1}.answer{min-height:23px;background:#888;border:2px solid #eee;box-shadow:inset 2px 2px #555,inset -1px -1px #bbb;width:100%;color:white;font-size:10px;font-weight:bold;padding:3px;overflow:hidden;text-align:center}.answer.filled{background:var(--green)}
+.choices-title{font-weight:1000;text-align:center;margin:0 0 5px;text-shadow:2px 2px #111;font-size:12px}.choices{width:100%;margin:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;position:static}.choice{touch-action:none;user-select:none;background:#777;color:white;font-weight:900;font-size:clamp(16px,4.5vw,22px);font-family:monospace;padding:5px 1px;border:3px solid #171717;box-shadow:inset 2px 2px #bbb,inset -2px -2px #444;text-shadow:1px 2px #333;cursor:grab;min-height:42px;overflow-wrap:anywhere}.choice.dragging{opacity:.45}.choice.used{opacity:.35;cursor:default;text-decoration:line-through}.choice:disabled{opacity:.42;cursor:default}.card:focus-visible,.choice:focus-visible,.pixelbtn:focus-visible{outline:3px solid #ffe45c;outline-offset:2px}.controls{margin:8px auto;display:flex;gap:7px;flex-wrap:wrap;justify-content:center}.pixelbtn{background:#666;color:white;border:3px solid #171717;box-shadow:inset 2px 2px #aaa,inset -2px -2px #333;padding:6px 10px;font-size:11px;font-weight:bold;cursor:pointer}.hint,.foot{font-size:10px;opacity:.9;margin:6px auto;text-align:center}.foot{opacity:.7}.error{font-size:10px;color:#ffdf9b;text-align:center;margin:6px auto}
+@media(max-width:360px){.app{padding-left:5px;padding-right:5px}.board{gap:5px}.card{padding:4px 3px;min-height:95px}.sprite{width:22px;height:22px}.question{font-size:9px}.answer{font-size:9px;min-height:21px}.choice{min-height:38px;font-size:16px}}
+</style></head>
+<body><main class="app"><div class="hearts" id="hearts">♥ ♥ ♥</div><header class="topline"><div class="brand">▦ BLOCO QUIZ</div><div class="stat">PONTOS: <span id="score">0</span></div><div class="stat">PERGUNTAS: <span id="progress">0/12</span></div></header><div class="message" id="message" aria-live="polite">Arraste cada resposta numérica até a pergunta correspondente.</div><div class="match-layout"><section class="board" id="board" aria-label="12 perguntas"></section><section aria-label="12 respostas"><h3 class="choices-title">ARRASTE CADA NÚMERO ATÉ A PERGUNTA</h3><div class="choices" id="choices"></div></section></div><div class="controls"><button class="pixelbtn" id="hintBtn">DICA</button><button class="pixelbtn" id="newBtn">NOVA RODADA</button></div><p class="hint" id="hintText">Perguntas variadas de Minecraft: ferramentas, vida e variantes dos mobs, receitas, armazenamento e mais. Todas têm respostas numéricas fixas.</p><p class="error" id="imageNotice">As texturas são carregadas pela internet; abra este arquivo com conexão ativa para vê-las.</p><p class="foot">Quiz de Minecraft • interface inspirada na referência enviada</p></main>
+<script>
+// Texturas originais dos arquivos de recursos do Minecraft Java 1.21.4.
+const ROOT='https://mcasset.cloud/1.21.4/assets/minecraft/textures/';
+const FALLBACK='https://mcasset.cloud/1.21.4/assets/minecraft/textures/';
+const item=n=>ROOT+'item/'+n+'.png';
+const block=n=>ROOT+'block/'+n+'.png';
+function spriteSources(path){
+  const candidates=[ROOT+path+'.png'];
+  // The clock is an animated texture in Java assets; use a real frame as its icon.
+  if(path==='item/clock') candidates.unshift(ROOT+'item/clock_00.png',ROOT+'item/clock_01.png');
+  // Chests are entity textures in the Java resource pack, not block/chest.png.
+  if(path==='block/chest') candidates.unshift(ROOT+'item/chest.png');
+  if(path==='block/trapped_chest') candidates.unshift(ROOT+'item/trapped_chest.png');
+  if(path==='block/ender_chest') candidates.unshift(ROOT+'item/ender_chest.png');
+  if(path==='block/barrel') candidates.unshift(ROOT+'item/barrel.png');
+  if(path==='block/red_bed') candidates.unshift(ROOT+'item/red_bed.png');
+  candidates.push('https://mcasset.cloud/1.21/assets/minecraft/textures/'+path+'.png');
+  candidates.push('https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.21.4/assets/minecraft/textures/'+path+'.png');
+  return [...new Set(candidates)];
+}
+const data=[];
+function add(q,a,img,cat=''){if(typeof a!=='number'||!Number.isFinite(a))return;const path=String(img).replace(ROOT,'').replace(/\.png$/,'');data.push({q,a,img,cat,path})}
+const materials={wooden:['madeira',59],stone:['pedra',131],iron:['ferro',250],golden:['ouro',32],diamond:['diamante',1561],netherite:['netherite',2031]};
+const tools=[['picareta','pickaxe'],['pá','shovel'],['machado','axe'],['enxada','hoe'],['espada','sword']];
+for(const [tool,kind] of tools) for(const [mat,[label,dur]] of Object.entries(materials)) add(`Durabilidade da ${tool} de ${label}`,dur,item(mat+'_'+kind),'ferramenta');
+const enchants=[['Eficiência',5],['Fortuna',3],['Toque Suave',1],['Inquebrável',3],['Remendo',1],['Afiação',5],['Pilhagem',3],['Aspecto Flamejante',2],['Proteção',4],['Repulsão',2],['Poder',5],['Chama',1],['Impacto',2],['Respiração',3],['Afinidade Aquática',1],['Espinhos',3],['Queda Suave',4],['Agilidade das Almas',3],['Velocidade das Almas',3],['Passos Gelados',2],['Perfuração',4],['Multitiro',1],['Carga Rápida',3],['Saque',3],['Investida',3]];
+for(const [name,n] of enchants)add(`Nível máximo de ${name}`,n,item('enchanted_book'),'encantamento');
+const fuels=[['balde de lava',100,'lava_bucket'],['carvão',8,'coal'],['bloco de carvão',80,'coal_block'],['vara',0.5,'stick'],['tábua de carvalho',1.5,'oak_planks'],['bloco de bambu',1.5,'bamboo_block'],['bloco de algas secas',20,'dried_kelp_block'],['bloco de madeira',1.5,'oak_log']];
+for(const [name,n,icon] of fuels)add(`Quantos itens 1 ${name} consegue cozinhar?`,n,icon.includes('_block')||icon.endsWith('_log')?block(icon):item(icon),'combustível');
+// Perguntas cuja resposta era um nome/texto foram removidas: este quiz aceita somente respostas numéricas.
+const time=[['ticks tem um dia completo no Minecraft',24000],['ticks tem um segundo',20],['ticks tem um minuto',1200],['segundos dura um dia completo no Minecraft',1200],['minutos dura um dia completo no Minecraft',20],['minutos reais duram 3 dias do Minecraft',60],['horas reais duram 6 dias do Minecraft',2]];
+for(const [q,a] of time)add(`Quantos ${q}?`,a,item('clock'),'tempo');
+const lives=[['jogador',20,'player_head'],['Dragão do End',200,'dragon_head'],['Wither',300,'wither_skeleton_skull'],['zumbi',20,'zombie_head'],['esqueleto',20,'skeleton_skull'],['Creeper',20,'creeper_head'],['Enderman',40,'ender_pearl'],['aranha',16,'spider_eye'],['golem de ferro',100,'iron_block'],['vaca',10,'leather'],['bruxa',26,'potion'],['piglin',16,'piglin_head']];
+for(const [mob,hp,icon] of lives)add(`Vida do ${mob} (em pontos)`,hp,item(icon),'vida');
+const storage=[['baú simples',27,'chest'],['baú duplo',54,'chest'],['barril',27,'barrel'],['caixa de shulker',27,'shulker_box'],['inventário principal',27,'chest'],['barra rápida',9,'chest'],['inventário completo do jogador',36,'chest'],['baú de armadilha',27,'trapped_chest'],['baú do Ender',27,'ender_chest']];
+for(const [name,n,icon] of storage)add(`Quantos espaços tem ${name}?`,n,item(icon),'armazenamento');
+const blocks=[['bloco de ferro','lingotes de ferro',9,'iron_block'],['bloco de ouro','lingotes de ouro',9,'gold_block'],['bloco de diamante','diamantes',9,'diamond_block'],['bloco de netherite','lingotes de netherite',9,'netherite_block'],['lingote de ferro','pepitas de ferro',9,'iron_ingot'],['lingote de ouro','pepitas de ouro',9,'gold_ingot'],['cama','blocos de lã',3,'red_bed'],['mesa de trabalho','tábuas',4,'crafting_table'],['picareta de diamante','diamantes para fabricar',3,'diamond_pickaxe'],['balde','lingotes de ferro',3,'bucket'],['mesa de encantamentos','blocos de obsidiana',4,'enchanting_table'],['portal mínimo do Nether','blocos de obsidiana',10,'obsidian'],['portal do Nether com cantos','blocos de obsidiana',14,'obsidian'],['bloco de redstone','pó de redstone',9,'redstone_block'],['bloco de lápis-lazúli','lápis-lazúli',9,'lapis_block'],['bloco de esmeralda','esmeraldas',9,'emerald_block'],['bloco de cobre','lingotes de cobre',9,'copper_block'],['bloco de carvão','carvões',9,'coal_block']];
+for(const [thing,unit,n,icon] of blocks)add(`Quantos ${unit} são necessários para fabricar ${thing}?`,n,thing.includes('portal')?block(icon):item(icon),'bloco');
+const misc=[['Quantos olhos do Ender podem ser colocados em uma moldura de portal do End?',12,block('end_portal_frame')],['Quantos lingotes de ferro são necessários para fabricar uma bigorna?',31,block('anvil')],['Quantos blocos de lã são necessários para uma cama?',3,block('white_wool')],['Quantos gravetos são necessários para fabricar uma picareta?',2,item('stick')],['Quantos pontos de vida tem um Creeper comum?',20,item('creeper_head')],['Quantos corações tem o jogador sem modificadores?',10,item('player_head')],['Quantos pontos de vida tem o Enderman?',40,item('ender_pearl')]];
+for(const [q,a,img] of misc)add(q,a,img,'geral');
+// Banco ampliado: estatísticas de mobs, variantes visuais e fatos fixos (Minecraft Java 1.21.4).
+// As respostas são sempre números; variantes contam aparências/categorias documentadas, não nomes.
+const mobFacts=[
+  ['Quantos pontos de vida tem um zumbi?',20,'zombie_head'],
+  ['Quantos pontos de vida tem uma ovelha?',8,'white_wool'],
+  ['Quantos pontos de vida tem um Enderman?',40,'ender_pearl'],
+  ['Quantos pontos de vida tem o Wither na Edição Java?',300,'wither_skeleton_skull'],
+  ['Quantos pontos de vida tem o Dragão do End?',200,'dragon_head'],
+  ['Quantos pontos de vida tem um esqueleto?',20,'skeleton_skull'],
+  ['Quantos pontos de vida tem um Creeper?',20,'creeper_head'],
+  ['Quantos pontos de vida tem uma aranha?',16,'spider_eye'],
+  ['Quantos pontos de vida tem uma vaca?',10,'leather'],
+  ['Quantos pontos de vida tem um porco?',10,'porkchop'],
+  ['Quantos pontos de vida tem uma galinha?',4,'feather'],
+  ['Quantos pontos de vida tem um gato?',10,'cod'],
+  ['Quantos pontos de vida tem um lobo domesticado?',40,'bone'],
+  ['Quantos pontos de vida tem um cavalo adulto?',30,'leather'],
+  ['Quantos pontos de vida tem um aldeão?',20,'emerald'],
+  ['Quantos pontos de vida tem um Piglin?',16,'gold_ingot'],
+  ['Quantos pontos de vida tem um Blaze?',20,'blaze_rod'],
+  ['Quantos pontos de vida tem um Slime grande?',16,'slime_ball'],
+  ['Quantos pontos de vida tem um Guardião?',30,'prismarine_shard'],
+  ['Quantos pontos de vida tem um Evocador?',24,'totem_of_undying'],
+  ['Quantos pontos de vida tem um Ravager?',100,'saddle'],
+  ['Quantos pontos de vida tem uma Bruxa?',26,'potion'],
+  ['Quantos pontos de vida tem um Golém de Ferro?',100,'iron_block'],
+  ['Quantos pontos de vida tem um Ghast?',10,'ghast_tear'],
+  ['Quantos pontos de vida tem um Shulker?',30,'shulker_shell'],
+  ['Quantos pontos de vida tem um Warden?',500,'sculk_catalyst'],
+  ['Quantos pontos de vida tem uma raposa?',10,'sweet_berries'],
+  ['Quantos pontos de vida tem uma tartaruga?',30,'turtle_scute'],
+  ['Quantos pontos de vida tem um panda?',20,'bamboo'],
+  ['Quantos pontos de vida tem uma abelha?',10,'honeycomb'],
+  ['Quantos pontos de vida tem um Axolote?',14,'tropical_fish_bucket'],
+  ['Quantos pontos de vida tem um Allay?',20,'amethyst_shard'],
+  ['Quantos pontos de vida tem um Camelo?',32,'camel_spawn_egg'],
+  ['Quantos pontos de vida tem um Breeze?',30,'wind_charge'],
+  ['Quantos pontos de vida tem um Bogged?',16,'arrow'],
+  ['Quantos pontos de vida tem um Armadillo?',12,'armadillo_scute']
+];
+for(const [q,a,icon] of mobFacts)add(q,a,item(icon),'vida dos mobs');
+const variants=[
+  ['Quantas variantes de gatos existem no Minecraft Java?',11,'cod'],
+  ['Quantas variantes de lobo existem no Minecraft Java 1.21.4?',9,'bone'],
+  ['Quantas combinações de cor e padrão de cavalo existem?',35,'leather'],
+  ['Quantas variantes naturais de coelho existem, contando o Toast como aparência especial?',8,'rabbit_hide'],
+  ['Quantas variantes de panda existem?',7,'bamboo'],
+  ['Quantas variantes de axolote existem?',5,'tropical_fish_bucket'],
+  ['Quantas variantes de cor de papagaio existem?',5,'feather'],
+  ['Quantas variantes de cor de lhama existem?',4,'white_wool'],
+  ['Quantas variantes de cor de coleira podem ser aplicadas a um lobo?',16,'bone'],
+  ['Quantas variantes de cor de coleira podem ser aplicadas a um gato?',16,'cod'],
+  ['Quantas profissões um aldeão pode ter, sem contar o desempregado e o simplório?',13,'emerald'],
+  ['Quantas aparências de profissão existem para aldeões, contando o desempregado e o simplório?',15,'villager_spawn_egg'],
+  ['Quantos tipos de cavalo existem contando cavalos, burros, mulas, cavalos-zumbis e cavalos-esqueleto?',5,'saddle'],
+  ['Quantas variantes de esqueleto existem contando esqueleto, errante e bogged?',3,'skeleton_skull'],
+  ['Quantas variantes comuns de zumbi existem contando zumbi, afogado, zumbi-múmia e aldeão-zumbi?',4,'zombie_head'],
+  ['Quantas cores básicas de ovelha existem naturalmente?',8,'white_wool'],
+  ['Quantas cores de lã existem no jogo?',16,'white_wool'],
+  ['Quantos tipos de peixe aparecem como itens de peixe, contando bacalhau, salmão, baiacu e peixe tropical?',4,'tropical_fish'],
+  ['Quantas combinações visuais de peixe tropical existem na Edição Java?',3584,'tropical_fish'],
+  ['Quantas variantes de fungo de vaca existem contando a vermelha e a marrom?',2,'red_mushroom'],
+  ['Quantos tipos de cofre de trial existem contando o normal e o ominoso?',2,'trial_key'],
+  ['Quantas variantes de slime existem por tamanho?',3,'slime_ball'],
+  ['Quantas variantes de tamanho de cubo de magma existem?',3,'magma_cream']
+];
+for(const [q,a,icon] of variants)add(q,a,item(icon),'variantes de mobs');
+const extraNumbers=[
+  ['Quantos espaços tem o inventário de um cavalo com baú?',15,'chest'],
+  ['Quantos espaços tem o inventário de um burro com baú?',15,'chest'],
+  ['Quantos itens cabem em uma pilha padrão?',64,'stone'],
+  ['Quantos slots tem uma bigorna para entrada, material e resultado?',3,'anvil'],
+  ['Quantas cabeças de dragão são necessárias para fazer um estandarte de caveira?',1,'dragon_head'],
+  ['Quantos minutos reais dura um dia completo no Minecraft?',20,'clock'],
+  ['Quantos níveis de carga tem o ataque de uma besta com Carga Rápida III?',1,'crossbow'],
+  ['Quantos blocos de alcance vertical tem o farol com pirâmide completa de 4 camadas?',4,'beacon'],
+  ['Quantos efeitos principais um farol de pirâmide completa pode selecionar ao mesmo tempo?',2,'beacon'],
+  ['Quantos fragmentos de ametista são necessários para fabricar um telescópio?',1,'spyglass'],
+  ['Quantos lingotes de cobre são necessários para fabricar um telescópio?',2,'spyglass'],
+  ['Quantos tipos de madeira existem no Minecraft Java 1.21.4, contando bambu e carvalho-carmesim?',11,'oak_planks'],
+  ['Quantos discos de música existem no Minecraft Java 1.21.4?',19,'music_disc_cat'],
+  ['Quantos níveis máximos tem o encantamento Eficiência?',5,'enchanted_book'],
+  ['Quantos itens podem ser fundidos por um bloco de algas secas?',20,'dried_kelp_block']
+];
+for(const [q,a,icon] of extraNumbers)add(q,a,item(icon),'outros fatos numéricos');
+
+let round=[],score=0,hearts=3,answered=new Set(),answerTokens=[];
+const board=document.querySelector('#board'),choices=document.querySelector('#choices'),message=document.querySelector('#message');
+function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
+function start(){
+  round=shuffle(data).slice(0,12).map((q,i)=>({...q,id:i}));
+  answered=new Set();hearts=3;score=0;
+  // One fixed numeric answer token per question; all 12 are visible from the start.
+  answerTokens=shuffle(round.map(q=>({id:q.id,value:q.a,used:false})));
+  render();
+  message.textContent='Arraste cada uma das 12 respostas numéricas até sua pergunta. Todas estão visíveis.';
+  document.querySelector('#hintText').textContent=`Rodada com 12 perguntas e 12 respostas fixas. Banco: ${data.length} perguntas numéricas sobre ferramentas, vida e variantes dos mobs, receitas e mecânicas.`;
+}
+function render(){
+  board.innerHTML='';
+  round.forEach((q,i)=>{
+    const card=document.createElement('div');card.className='card'+(answered.has(i)?' correct':'');card.dataset.question=String(i);card.setAttribute('aria-label',q.q);
+    const im=document.createElement('img');im.className='sprite';im.alt='';im.loading='eager';im.dataset.sourceIndex='0';const candidates=spriteSources(q.path);im.dataset.candidates=JSON.stringify(candidates);im.src=candidates[0];
+    im.onerror=()=>{const next=Number(im.dataset.sourceIndex)+1;if(next<candidates.length){im.dataset.sourceIndex=String(next);im.src=candidates[next]}else{im.classList.add('sprite-missing');im.removeAttribute('src');im.alt=''}};
+    const question=document.createElement('div');question.className='question';question.textContent=q.q;
+    const ans=document.createElement('div');ans.className='answer'+(answered.has(i)?' filled':'');ans.textContent=answered.has(i)?String(q.a):'';
+    card.append(im,question,ans);
+    card.addEventListener('dragover',e=>{if(!answered.has(i)&&hearts>0){e.preventDefault();card.classList.add('drop-target')}});
+    card.addEventListener('dragleave',()=>card.classList.remove('drop-target'));
+    card.addEventListener('drop',e=>{e.preventDefault();card.classList.remove('drop-target');const tokenId=Number(e.dataTransfer.getData('text/plain'));dropAnswer(tokenId,i)});
+    // Touch-friendly pointer drag for tablets and phones.
+    card.addEventListener('pointerup',e=>{if(window._dragTokenId!==undefined&&window._dragTokenId!==null){const r=card.getBoundingClientRect();if(e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom)dropAnswer(window._dragTokenId,i)}});
+    board.appendChild(card);
+  });
+  document.querySelector('#score').textContent=score;
+  document.querySelector('#hearts').textContent='♥ '.repeat(hearts).trim()+' '+ '♡ '.repeat(3-hearts);
+  document.querySelector('#progress').textContent=`${answered.size}/12`;
+  renderChoices();
+}
+function renderChoices(){
+  choices.innerHTML='';
+  answerTokens.forEach(token=>{
+    const b=document.createElement('button');b.type='button';b.className='choice'+(token.used?' used':'');b.textContent=String(token.value);b.draggable=!token.used&&hearts>0;b.disabled=token.used||hearts<=0;b.dataset.token=String(token.id);b.setAttribute('aria-label',`Resposta numérica ${token.value}; arraste até uma pergunta`);
+    b.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',String(token.id));e.dataTransfer.effectAllowed='move';b.classList.add('dragging')});
+    b.addEventListener('dragend',()=>b.classList.remove('dragging'));
+    b.addEventListener('pointerdown',()=>{if(!token.used&&hearts>0)window._dragTokenId=token.id});
+    b.addEventListener('pointerup',()=>{window._dragTokenId=null});
+    choices.appendChild(b);
+  });
+}
+function dropAnswer(tokenId,questionId){
+  if(hearts<=0||answered.has(questionId))return;
+  const token=answerTokens.find(t=>t.id===tokenId);if(!token||token.used)return;
+  const q=round[questionId];
+  if(String(token.value)===String(q.a)){
+    token.used=true;answered.add(questionId);score+=100;
+    message.textContent='Correto! +100 pontos. Continue arrastando as respostas restantes.';
+  }else{
+    hearts--;message.textContent=`Número incorreto para essa pergunta. Tente outra associação. Vidas restantes: ${hearts}.`;
+    const card=board.querySelector(`[data-question="${questionId}"]`);if(card){card.classList.add('wrong');setTimeout(()=>card.classList.remove('wrong'),500)}
+  }
+  if(answered.size===12)message.textContent=`Rodada completa! Você associou as 12 respostas. Pontuação final: ${score}.`;
+  else if(hearts<=0)message.textContent=`Fim de jogo! Pontuação: ${score}. Clique em NOVA RODADA para tentar novamente.`;
+  render();
+}
+document.querySelector('#hintBtn').onclick=()=>{document.querySelector('#hintText').textContent='Arraste um número da coluna de respostas diretamente para a pergunta. As 12 respostas são fixas durante toda a rodada.'};document.querySelector('#newBtn').onclick=start;
+start();
+</script></body></html>
